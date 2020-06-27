@@ -16,5 +16,5 @@ setup(
     long_description_content_type='text/markdown',
     url='https://github.com/whitebarry/dynamo-dlm',
     packages=find_packages(),
-    requires=requirements
+    install_requires=requirements
 )
