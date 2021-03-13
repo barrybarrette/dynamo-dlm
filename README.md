@@ -1,5 +1,5 @@
 # dynamo-dlm
-[![Build Status](https://travis-ci.org/whitebarry/dynamo-dlm.svg?branch=master)](https://travis-ci.org/whitebarry/dynamo-dlm)
+[![Build Status](https://travis-ci.org/barrybarrette/dynamo-dlm.svg?branch=master)](https://travis-ci.org/barrybarrette/dynamo-dlm)
 [![Coverage Status](https://coveralls.io/repos/github/whitebarry/dynamo-dlm/badge.svg)](https://coveralls.io/github/whitebarry/dynamo-dlm)
 
 
