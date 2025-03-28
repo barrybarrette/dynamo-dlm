@@ -17,4 +17,3 @@ if __name__ == "__main__":
     with Pool(num_threads) as pool:
         pool.map(f, range(num_threads))
     print(f"Took {timedelta(seconds=time.time() - start)}")
-    print('github please run this')
