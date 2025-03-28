@@ -9,7 +9,7 @@
 
 Distributed lock manager for Python using AWS DynamoDB for persistence
 
-Currently this module exposes a single distributed locking primitive, `DynamoDbLock` that functions similarly to `threading.Lock` in the standard library 
+Currently, this module exposes a single distributed locking primitive, `DynamoDbLock` that functions similarly to `threading.Lock` in the standard library 
 
 Locks are scoped to a logical resource, represented by an arbitrary but uniquely identifying string, referred to below as the `resource_id`.
 All instances of `DynamoDbLock` with the same table name and resource id will respect the lock rules. 
@@ -87,4 +87,20 @@ import dynamo_dlm as dlm
 
 resource_id = 'a unique resource identifier'
 lock = dlm.DynamoDbLock(resource_id, duration=5, table_name='my_dynamo_db_lock_table')
+```
+
+
+Now supporting multiple concurrency. Each instance will allow multiple connections up to the concurrency limit before blocking.
+Defaults to 1 for backwards compatibility and as a sane default. Added in version 1.1.0
+```python
+import dynamo_dlm as dlm
+
+resource_id = 'a unique resource identifier'
+lock1 = dlm.DynamoDbLock(resource_id, concurrency=2)
+lock2 = dlm.DynamoDbLock(resource_id, concurrency=2)
+lock3 = dlm.DynamoDbLock(resource_id, concurrency=2)
+
+lock1.acquire() # normal acquire
+lock2.acquire() # second concurrent acquire
+lock3.acquire() # blocked until lock1 or lock2 release or expire
 ```

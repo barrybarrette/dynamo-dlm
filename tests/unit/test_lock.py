@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 
 from boto3.dynamodb.conditions import Attr
 
@@ -71,7 +71,7 @@ class TestDynamoDbLock(unittest.TestCase):
         lock.acquire()
         table_mock.put_item.assert_called_once_with(
             Item={
-                "resource_id": self.resource_id,
+                "resource_id": f"{self.resource_id}-0",
                 "release_code": UUID,
                 "expires": NOW + dlm.DEFAULT_DURATION,
             },
@@ -84,7 +84,7 @@ class TestDynamoDbLock(unittest.TestCase):
         lock.acquire()
         table_mock.put_item.assert_called_once_with(
             Item={
-                "resource_id": self.resource_id,
+                "resource_id": f"{self.resource_id}-0",
                 "release_code": UUID,
                 "expires": NOW + 20,
             },
@@ -112,7 +112,7 @@ class TestDynamoDbLock(unittest.TestCase):
         lock.acquire()
         lock.release()
         table_mock.delete_item.assert_called_once_with(
-            Key={"resource_id": self.resource_id},
+            Key={"resource_id": f"{self.resource_id}-0"},
             ConditionExpression=Attr("release_code").eq(UUID),
         )
 
@@ -128,3 +128,86 @@ class TestDynamoDbLock(unittest.TestCase):
             table_mock.put_item.assert_called_once()
             table_mock.delete_item.assert_not_called()
         table_mock.delete_item.assert_called_once()
+
+    def test_lock_cannot_be_reacquired_unless_released(self):
+        lock = dlm.DynamoDbLock(self.resource_id)
+        lock.acquire()
+        with self.assertRaises(dlm.LockNotAcquiredError):
+            lock.acquire()
+        lock.release()
+        lock.acquire()
+
+    def test_can_support_multiple_concurrent_locks(self):
+        table_mock.put_item.side_effect = [
+            "success",  # lock1 acquires id 0
+            MockConditionalCheckFailedException,  # lock2 fails to acquire id 0
+            "success",  # lock2 acquires id 1
+            MockConditionalCheckFailedException,  # lock3 fails to acquire id 0
+            MockConditionalCheckFailedException,  # lock3 fails to acquire id 1
+            "success",  # lock3 acquires, implies lock1 released
+        ]
+        lock1 = dlm.DynamoDbLock(self.resource_id, concurrency=2)
+        lock2 = dlm.DynamoDbLock(self.resource_id, concurrency=2)
+        lock3 = dlm.DynamoDbLock(self.resource_id, concurrency=2)
+        lock1.acquire()
+        lock2.acquire()
+        lock3.acquire()
+        self.assertEqual(6, table_mock.put_item.call_count)
+        table_mock.put_item.assert_has_calls(
+            [
+                call(  # lock1 acquires id 0
+                    Item={
+                        "resource_id": f"{self.resource_id}-0",
+                        "release_code": UUID,
+                        "expires": NOW + dlm.DEFAULT_DURATION,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(NOW),
+                ),
+                call(  # lock2 fails to acquire id 0
+                    Item={
+                        "resource_id": f"{self.resource_id}-0",
+                        "release_code": UUID,
+                        "expires": NOW + dlm.DEFAULT_DURATION,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(NOW),
+                ),
+                call(  # lock2 acquires id 1
+                    Item={
+                        "resource_id": f"{self.resource_id}-1",
+                        "release_code": UUID,
+                        "expires": NOW + dlm.DEFAULT_DURATION,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(NOW),
+                ),
+                call(  # lock3 fails to acquire id 0
+                    Item={
+                        "resource_id": f"{self.resource_id}-0",
+                        "release_code": UUID,
+                        "expires": NOW + dlm.DEFAULT_DURATION,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(NOW),
+                ),
+                call(  # lock3 fails to acquire id 1
+                    Item={
+                        "resource_id": f"{self.resource_id}-1",
+                        "release_code": UUID,
+                        "expires": NOW + dlm.DEFAULT_DURATION,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(NOW),
+                ),
+                call(  # lock3 acquires, implies lock1 released
+                    Item={
+                        "resource_id": f"{self.resource_id}-0",
+                        "release_code": UUID,
+                        "expires": NOW + dlm.DEFAULT_DURATION,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(NOW),
+                ),
+            ]
+        )

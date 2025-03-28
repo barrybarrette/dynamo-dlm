@@ -18,11 +18,18 @@ _dynamo_db = boto3.resource("dynamodb")
 
 class DynamoDbLock:
 
-    def __init__(self, resource_id: str, duration: int = 10, table_name: str = None):
+    def __init__(
+        self,
+        resource_id: str,
+        duration: int = 10,
+        table_name: str = None,
+        concurrency: int = 1,
+    ):
         self._table = _dynamo_db.Table(table_name or dlm.DEFAULT_TABLE_NAME)
-        self._resource_id = resource_id
+        self._base_resource_id = resource_id
         self._duration = duration or dlm.DEFAULT_DURATION
         self._release_code = None
+        self._concurrency = concurrency
 
     def __enter__(self):
         self.acquire()
@@ -31,6 +38,10 @@ class DynamoDbLock:
         self.release()
 
     def acquire(self):
+        if self._release_code:
+            raise dlm.LockNotAcquiredError(
+                "Cannot reacquire lock that hasn't been released yet"
+            )
         self._release_code = uuid.uuid4().hex
         lock_confirmation = self._acquire_lock()
         while lock_confirmation is None:
@@ -38,8 +49,9 @@ class DynamoDbLock:
 
     def release(self):
         if not self._release_code:
-            raise LockNotAcquiredError()
+            raise LockNotAcquiredError("Cannot release a lock that was never acquired")
         self._release_lock()
+        self._release_code = None
 
     def _acquire_lock(self):
         try:
@@ -60,22 +72,29 @@ class DynamoDbLock:
     @backoff.on_predicate(backoff.expo, jitter=backoff.full_jitter)
     def _put_lock_item(self):
         now = int(time.time())
-        try:
-            return self._table.put_item(
-                Item={
-                    "resource_id": self._resource_id,
-                    "release_code": self._release_code,
-                    "expires": now + self._duration,
-                },
-                ConditionExpression=Attr("resource_id").not_exists()
-                | Attr("expires").lte(now),
-            )
-        except _dynamo_db.meta.client.exceptions.ClientError as error:
-            if (
-                error.response["Error"]["Code"]
-                != "ProvisionedThroughputExceededException"
-            ):
-                raise error
+        for i in range(self._concurrency):
+            self._resource_id = f"{self._base_resource_id}-{i}"
+            try:
+                return self._table.put_item(
+                    Item={
+                        "resource_id": self._resource_id,
+                        "release_code": self._release_code,
+                        "expires": now + self._duration,
+                    },
+                    ConditionExpression=Attr("resource_id").not_exists()
+                    | Attr("expires").lte(now),
+                )
+            except (
+                _dynamo_db.meta.client.exceptions.ConditionalCheckFailedException
+            ) as e:
+                if i == self._concurrency - 1:
+                    raise e
+            except _dynamo_db.meta.client.exceptions.ClientError as e:
+                if (
+                    e.response["Error"]["Code"]
+                    != "ProvisionedThroughputExceededException"
+                ):
+                    raise e
 
     @backoff.on_predicate(backoff.expo, jitter=backoff.full_jitter)
     def _delete_lock_item(self):
@@ -94,8 +113,12 @@ class DynamoDbLock:
 
 class LockNotAcquiredError(RuntimeError):
 
+    def __init__(self, msg: str):
+        super().__init__()
+        self.msg = msg
+
     def __str__(self):
-        return "LockNotAcquiredError: Cannot release a lock that was never acquired"
+        return f"LockNotAcquiredError: {self.msg}"
 
     def __repr__(self):
         return str(self)
