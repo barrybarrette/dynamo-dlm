@@ -1,6 +1,10 @@
 # dynamo-dlm
-[![Build Status](https://travis-ci.org/barrybarrette/dynamo-dlm.svg?branch=master)](https://travis-ci.org/barrybarrette/dynamo-dlm)
-[![Coverage Status](https://coveralls.io/repos/github/whitebarry/dynamo-dlm/badge.svg)](https://coveralls.io/github/whitebarry/dynamo-dlm)
+[![Build Status](https://github.com/barrybarrette/dynamo-dlm/actions/workflows/workflows.yml/badge.svg)](https://github.com/barrybarrette/dynamo-dlm/actions)
+[![PyPi](https://img.shields.io/pypi/v/dynamo-dlm)](https://pypi.python.org/pypi/dynamo-dlm)
+[![Uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 
 
 Distributed lock manager for Python using AWS DynamoDB for persistence
