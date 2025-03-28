@@ -1,6 +1,0 @@
--r requirements.txt
-
-bolt-ta>=0.3.2
-conttest>=0.0.8
-coverage>=5.1
-nose>=1.3.7

@@ -1,0 +1,32 @@
+[project]
+name = "dynamo-dlm"
+version = "1.0.1"
+description = "Distributed lock manager for Python using AWS DynamoDB for persistence"
+authors = [
+  {name = "Barry Barrette", email = "barrybarrette@gmail.com"},
+]
+license = "GPL-3.0-or-later"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "backoff>=1.10.0",
+    "boto3>=1.14.12",
+]
+
+[project.urls]
+Homepage = "https://github.com/whitebarry/dynamo-dlm"
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.2",
+]
+
+[tool.pytest.ini_options]
+pythonpath = "."
+
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
