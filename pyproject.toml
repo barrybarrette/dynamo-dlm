@@ -1,6 +1,6 @@
 [project]
 name = "dynamo-dlm"
-version = "1.1.0"
+version = "1.2.0"
 description = "Distributed lock manager for Python using AWS DynamoDB for persistence"
 authors = [
   {name = "Barry Barrette", email = "barrybarrette@gmail.com"},

@@ -71,7 +71,8 @@ class TestDynamoDbLock(unittest.TestCase):
         lock.acquire()
         table_mock.put_item.assert_called_once_with(
             Item={
-                "resource_id": f"{self.resource_id}-0",
+                "resource_id": f"{self.resource_id}",
+                "concurrency_id": 0,
                 "release_code": UUID,
                 "expires": NOW + dlm.DEFAULT_DURATION,
             },
@@ -84,7 +85,8 @@ class TestDynamoDbLock(unittest.TestCase):
         lock.acquire()
         table_mock.put_item.assert_called_once_with(
             Item={
-                "resource_id": f"{self.resource_id}-0",
+                "resource_id": f"{self.resource_id}",
+                "concurrency_id": 0,
                 "release_code": UUID,
                 "expires": NOW + 20,
             },
@@ -112,7 +114,7 @@ class TestDynamoDbLock(unittest.TestCase):
         lock.acquire()
         lock.release()
         table_mock.delete_item.assert_called_once_with(
-            Key={"resource_id": f"{self.resource_id}-0"},
+            Key={"resource_id": f"{self.resource_id}", "concurrency_id": 0},
             ConditionExpression=Attr("release_code").eq(UUID),
         )
 
@@ -157,7 +159,8 @@ class TestDynamoDbLock(unittest.TestCase):
             [
                 call(  # lock1 acquires id 0
                     Item={
-                        "resource_id": f"{self.resource_id}-0",
+                        "resource_id": f"{self.resource_id}",
+                        "concurrency_id": 0,
                         "release_code": UUID,
                         "expires": NOW + dlm.DEFAULT_DURATION,
                     },
@@ -166,7 +169,8 @@ class TestDynamoDbLock(unittest.TestCase):
                 ),
                 call(  # lock2 fails to acquire id 0
                     Item={
-                        "resource_id": f"{self.resource_id}-0",
+                        "resource_id": f"{self.resource_id}",
+                        "concurrency_id": 0,
                         "release_code": UUID,
                         "expires": NOW + dlm.DEFAULT_DURATION,
                     },
@@ -175,7 +179,8 @@ class TestDynamoDbLock(unittest.TestCase):
                 ),
                 call(  # lock2 acquires id 1
                     Item={
-                        "resource_id": f"{self.resource_id}-1",
+                        "resource_id": f"{self.resource_id}",
+                        "concurrency_id": 1,
                         "release_code": UUID,
                         "expires": NOW + dlm.DEFAULT_DURATION,
                     },
@@ -184,7 +189,8 @@ class TestDynamoDbLock(unittest.TestCase):
                 ),
                 call(  # lock3 fails to acquire id 0
                     Item={
-                        "resource_id": f"{self.resource_id}-0",
+                        "resource_id": f"{self.resource_id}",
+                        "concurrency_id": 0,
                         "release_code": UUID,
                         "expires": NOW + dlm.DEFAULT_DURATION,
                     },
@@ -193,7 +199,8 @@ class TestDynamoDbLock(unittest.TestCase):
                 ),
                 call(  # lock3 fails to acquire id 1
                     Item={
-                        "resource_id": f"{self.resource_id}-1",
+                        "resource_id": f"{self.resource_id}",
+                        "concurrency_id": 1,
                         "release_code": UUID,
                         "expires": NOW + dlm.DEFAULT_DURATION,
                     },
@@ -202,7 +209,8 @@ class TestDynamoDbLock(unittest.TestCase):
                 ),
                 call(  # lock3 acquires, implies lock1 released
                     Item={
-                        "resource_id": f"{self.resource_id}-0",
+                        "resource_id": f"{self.resource_id}",
+                        "concurrency_id": 0,
                         "release_code": UUID,
                         "expires": NOW + dlm.DEFAULT_DURATION,
                     },

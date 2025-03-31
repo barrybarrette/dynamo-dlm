@@ -4,7 +4,7 @@ import uuid
 
 import backoff
 import boto3
-from boto3.dynamodb.conditions import Attr
+from boto3.dynamodb.conditions import Attr, Key
 
 # Import own module to ensure we get user-defined custom table names defined there
 import dynamo_dlm as dlm
@@ -26,10 +26,11 @@ class DynamoDbLock:
         concurrency: int = 1,
     ):
         self._table = _dynamo_db.Table(table_name or dlm.DEFAULT_TABLE_NAME)
-        self._base_resource_id = resource_id
+        self._resource_id = resource_id
         self._duration = duration or dlm.DEFAULT_DURATION
         self._release_code = None
         self._concurrency = concurrency
+        self._concurrency_id = None
 
     def __enter__(self):
         self.acquire()
@@ -53,6 +54,15 @@ class DynamoDbLock:
         self._release_lock()
         self._release_code = None
 
+    def count(self):
+        now = int(time.time())
+        response = self._table.query(
+            Select='COUNT',
+            KeyConditionExpression=Key('resource_id').eq(self._resource_id),
+            FilterExpression=Attr('expires').gte(now)
+        )
+        return response["Count"]
+
     def _acquire_lock(self):
         try:
             return self._put_lock_item()
@@ -72,12 +82,12 @@ class DynamoDbLock:
     @backoff.on_predicate(backoff.expo, jitter=backoff.full_jitter)
     def _put_lock_item(self):
         now = int(time.time())
-        for i in range(self._concurrency):
-            self._resource_id = f"{self._base_resource_id}-{i}"
+        for self._concurrency_id in range(self._concurrency):
             try:
                 return self._table.put_item(
                     Item={
                         "resource_id": self._resource_id,
+                        "concurrency_id": self._concurrency_id,
                         "release_code": self._release_code,
                         "expires": now + self._duration,
                     },
@@ -87,7 +97,7 @@ class DynamoDbLock:
             except (
                 _dynamo_db.meta.client.exceptions.ConditionalCheckFailedException
             ) as e:
-                if i == self._concurrency - 1:
+                if self._concurrency_id == self._concurrency - 1:
                     raise e
             except _dynamo_db.meta.client.exceptions.ClientError as e:
                 if (
@@ -100,7 +110,7 @@ class DynamoDbLock:
     def _delete_lock_item(self):
         try:
             return self._table.delete_item(
-                Key={"resource_id": self._resource_id},
+                Key={"resource_id": self._resource_id, "concurrency_id": self._concurrency_id},
                 ConditionExpression=Attr("release_code").eq(self._release_code),
             )
         except _dynamo_db.meta.client.exceptions.ClientError as error:
