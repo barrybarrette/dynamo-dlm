@@ -57,9 +57,9 @@ class DynamoDbLock:
     def count(self):
         now = int(time.time())
         response = self._table.query(
-            Select='COUNT',
-            KeyConditionExpression=Key('resource_id').eq(self._resource_id),
-            FilterExpression=Attr('expires').gte(now)
+            Select="COUNT",
+            KeyConditionExpression=Key("resource_id").eq(self._resource_id),
+            FilterExpression=Attr("expires").gte(now),
         )
         return response["Count"]
 
@@ -110,7 +110,10 @@ class DynamoDbLock:
     def _delete_lock_item(self):
         try:
             return self._table.delete_item(
-                Key={"resource_id": self._resource_id, "concurrency_id": self._concurrency_id},
+                Key={
+                    "resource_id": self._resource_id,
+                    "concurrency_id": self._concurrency_id,
+                },
                 ConditionExpression=Attr("release_code").eq(self._release_code),
             )
         except _dynamo_db.meta.client.exceptions.ClientError as error:
