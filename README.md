@@ -15,13 +15,14 @@ Locks are scoped to a logical resource, represented by an arbitrary but uniquely
 All instances of `DynamoDbLock` with the same table name and resource id will respect the lock rules. 
 By default, the lock looks for a DynamoDB table named `dynamo_dlm_locks`. 
 You may use a custom name for the table as outlined below.
-The table must have a primary key of type `String` named `resource_id` and NO sort key:
+As of version 2.0, the table must have a primary key of type `String` named `resource_id`
+and a sort key of type `Number` named `concurrency_id`:
 
 
-![](https://i.imgur.com/vOgVsAd.png)
+![](https://i.imgur.com/bf1bBc7.png)
 
 Your application will need the following permissions in order to function properly:
-![](https://i.imgur.com/nw5F1ab.png)
+![](https://i.imgur.com/xd2Nvkp.png)
 
 ##### A note on capacity and performance:
 The lock class has been designed such that it should never fail under normal circumstances.
@@ -29,6 +30,7 @@ Given enough time, it should eventually acquire a lock even if there are thousan
 When using on-demand capacity all locks should acquire in constant time, every time.   
 DynamoDB provisioned capacity is a topic too in depth to go into here but if you are using it and run into issues with locks taking too long to acquire then you likely need to increase your write capacity.
 The lock should **never** consume read capacity. This is due to the way that DynamoDB handles conditional writes.
+However, as of version 2.0, calling the `count()` method on a lock will consume read capacity.
 Logging has been added at log level `WARNING` to notify you of any backoffs related to provisioned capacity.  
 When not constrained by write capacity or network speed, the average acquire/release cycle takes approximately 100ms when running outside of AWS. 
 If your execution environment is within AWS it will be markedly faster, as low as 10 ms when within the same region.
@@ -90,8 +92,8 @@ lock = dlm.DynamoDbLock(resource_id, duration=5, table_name='my_dynamo_db_lock_t
 ```
 
 
-Now supporting multiple concurrency. Each instance will allow multiple connections up to the concurrency limit before blocking.
-Defaults to 1 for backwards compatibility and as a sane default. Added in version 1.1.0
+Now supporting multiple concurrency as of version 2.0. Each instance will allow multiple connections up to the concurrency limit before blocking.
+Defaults to 1 for backwards compatibility and as a sane default. The count of current unexpired locks can be obtained by calling the `count()` method.
 ```python
 import dynamo_dlm as dlm
 
@@ -101,6 +103,8 @@ lock2 = dlm.DynamoDbLock(resource_id, concurrency=2)
 lock3 = dlm.DynamoDbLock(resource_id, concurrency=2)
 
 lock1.acquire() # normal acquire
+lock1.count() # 1
 lock2.acquire() # second concurrent acquire
+lock1.count() # 2
 lock3.acquire() # blocked until lock1 or lock2 release or expire
 ```
