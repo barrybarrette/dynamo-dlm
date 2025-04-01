@@ -24,6 +24,7 @@ class DynamoDbLock:
         duration: int = 10,
         table_name: str = None,
         concurrency: int = 1,
+        wait_forever: bool = True,
     ):
         self._table = _dynamo_db.Table(table_name or dlm.DEFAULT_TABLE_NAME)
         self._resource_id = resource_id
@@ -31,6 +32,7 @@ class DynamoDbLock:
         self._release_code = None
         self._concurrency = concurrency
         self._concurrency_id = None
+        self._wait_forever = wait_forever
 
     def __enter__(self):
         self.acquire()
@@ -40,11 +42,15 @@ class DynamoDbLock:
 
     def acquire(self):
         if self._release_code:
-            raise dlm.LockNotAcquiredError(
+            raise LockNotAcquiredError(
                 "Cannot reacquire lock that hasn't been released yet"
             )
         self._release_code = uuid.uuid4().hex
         lock_confirmation = self._acquire_lock()
+        if not lock_confirmation and not self._wait_forever:
+            raise LockNotAcquiredError(
+                "Failed to acquire immediately and wait_forever is false"
+            )
         while lock_confirmation is None:
             lock_confirmation = self._acquire_lock()
 

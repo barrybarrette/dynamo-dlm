@@ -219,3 +219,16 @@ class TestDynamoDbLock(unittest.TestCase):
                 ),
             ]
         )
+
+    def test_can_raise_errors_if_asked_to(self):
+        table_mock.put_item.side_effect = [
+            "success",  # lock1 acquires
+            MockConditionalCheckFailedException,  # lock2 fails to acquire
+        ]
+
+        lock1 = dlm.DynamoDbLock(self.resource_id, wait_forever=False)
+        lock2 = dlm.DynamoDbLock(self.resource_id, wait_forever=False)
+
+        lock1.acquire()
+        with self.assertRaises(dlm.LockNotAcquiredError):
+            lock2.acquire()
