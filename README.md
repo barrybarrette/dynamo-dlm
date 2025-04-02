@@ -96,7 +96,7 @@ lock = dlm.DynamoDbLock(resource_id, duration=5, table_name='my_dynamo_db_lock_t
 
 
 Now supporting multiple concurrency as of version 2.0. Each instance will allow multiple connections up to the concurrency limit before blocking.
-Defaults to 1 for backwards compatibility and as a sane default. The count of current unexpired locks can be obtained by calling the `count()` method.
+Defaults to 1 for backwards compatibility and as a sane default.
 ```python
 import dynamo_dlm as dlm
 
