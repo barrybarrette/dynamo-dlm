@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock, call
 
 from boto3.dynamodb.conditions import Attr
 
+import dynamo_dlm as dlm
 
 # Constants
 NOW = 12345678
@@ -32,11 +33,8 @@ time_mock.return_value = NOW
 uuid_mock = MagicMock()
 uuid_mock.return_value.hex = UUID
 
-# Patched import of main module to apply boto3 mocks
-with patch("boto3.resource", boto_mock):
-    import dynamo_dlm as dlm
 
-
+@patch("boto3.resource", boto_mock)
 @patch("uuid.uuid4", uuid_mock)
 @patch("time.time", time_mock)
 class TestDynamoDbLock(unittest.TestCase):

@@ -12,7 +12,9 @@ JOB_DURATION = 5  # seconds
 def f(i):
     print(f"{i} pre-lock", flush=True)
     lock = dlm.DynamoDbLock(
-        "smoke test", concurrency=CONCURRENT_LOCKS, wait_forever=False
+        "smoke test",
+        concurrency=CONCURRENT_LOCKS,
+        wait_forever=False,
     )
     print(f"{i} count: {lock.count()}", flush=True)
     try:
@@ -21,7 +23,7 @@ def f(i):
             time.sleep(JOB_DURATION)
         print(f"{i} released", flush=True)
     except dlm.LockNotAcquiredError:
-        print(f"didn't acquire {i}")
+        print(f"{i} didn't acquire")
 
 
 if __name__ == "__main__":

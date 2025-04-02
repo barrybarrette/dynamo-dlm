@@ -13,7 +13,6 @@ import dynamo_dlm as dlm
 # Adds default logging for backoff algorithm. Leaving this at the default log level of WARNING will log backoff events
 logging.getLogger("backoff").addHandler(logging.StreamHandler())
 _logger = logging.getLogger("dynamo_dlm")
-_dynamo_db = boto3.resource("dynamodb")
 
 
 class DynamoDbLock:
@@ -26,7 +25,8 @@ class DynamoDbLock:
         concurrency: int = 1,
         wait_forever: bool = True,
     ):
-        self._table = _dynamo_db.Table(table_name or dlm.DEFAULT_TABLE_NAME)
+        self._dynamo_db = boto3.resource("dynamodb")
+        self._table = self._dynamo_db.Table(table_name or dlm.DEFAULT_TABLE_NAME)
         self._resource_id = resource_id
         self._duration = duration or dlm.DEFAULT_DURATION
         self._release_code = None
@@ -72,13 +72,13 @@ class DynamoDbLock:
     def _acquire_lock(self):
         try:
             return self._put_lock_item()
-        except _dynamo_db.meta.client.exceptions.ConditionalCheckFailedException:
+        except self._dynamo_db.meta.client.exceptions.ConditionalCheckFailedException:
             pass
 
     def _release_lock(self):
         try:
             self._delete_lock_item()
-        except _dynamo_db.meta.client.exceptions.ConditionalCheckFailedException:
+        except self._dynamo_db.meta.client.exceptions.ConditionalCheckFailedException:
             _logger.warning(
                 f"Warning: DynamoDbLock for resource {self._resource_id} attempted to release after "
                 f"it was already acquired. This means the caller took too long to release "
@@ -101,11 +101,11 @@ class DynamoDbLock:
                     | Attr("expires").lte(now),
                 )
             except (
-                _dynamo_db.meta.client.exceptions.ConditionalCheckFailedException
+                self._dynamo_db.meta.client.exceptions.ConditionalCheckFailedException
             ) as e:
                 if self._concurrency_id == self._concurrency - 1:
                     raise e
-            except _dynamo_db.meta.client.exceptions.ClientError as e:
+            except self._dynamo_db.meta.client.exceptions.ClientError as e:
                 if (
                     e.response["Error"]["Code"]
                     != "ProvisionedThroughputExceededException"
@@ -122,7 +122,7 @@ class DynamoDbLock:
                 },
                 ConditionExpression=Attr("release_code").eq(self._release_code),
             )
-        except _dynamo_db.meta.client.exceptions.ClientError as error:
+        except self._dynamo_db.meta.client.exceptions.ClientError as error:
             if (
                 error.response["Error"]["Code"]
                 != "ProvisionedThroughputExceededException"
