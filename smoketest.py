@@ -16,7 +16,6 @@ def f(i):
         concurrency=CONCURRENT_LOCKS,
         wait_forever=False,
     )
-    print(f"{i} count: {lock.count()}", flush=True)
     try:
         with lock:
             print(f"{i} acquired", flush=True)

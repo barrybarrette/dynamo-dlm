@@ -4,7 +4,7 @@ import uuid
 
 import backoff
 import boto3
-from boto3.dynamodb.conditions import Attr, Key
+from boto3.dynamodb.conditions import Attr
 
 # Import own module to ensure we get user-defined custom table names defined there
 import dynamo_dlm as dlm
@@ -59,15 +59,6 @@ class DynamoDbLock:
             raise LockNotAcquiredError("Cannot release a lock that was never acquired")
         self._release_lock()
         self._release_code = None
-
-    def count(self):
-        now = int(time.time())
-        response = self._table.query(
-            Select="COUNT",
-            KeyConditionExpression=Key("resource_id").eq(self._resource_id),
-            FilterExpression=Attr("expires").gte(now),
-        )
-        return response["Count"]
 
     def _acquire_lock(self):
         try:
